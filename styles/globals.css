@@ -1,0 +1,140 @@
+.qr-page {
+  position: fixed;
+  inset: 0;
+  background: #fff;
+}
+
+* { box-sizing: border-box; }
+html, body, #__next { margin: 0; height: 100%; background: #000; }
+button { font: inherit; }
+
+  .pocket {
+    --bg-top: #EDEDEB;
+    --bg-bottom: #DADAD8;
+    --ink: #121212;
+    --muted: #55575A;
+    color-scheme: light;
+    box-sizing: border-box;
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  @media (prefers-color-scheme: dark) {
+    .pocket:not([data-theme="light"]) { --bg-top: #3A3B3A; --bg-bottom: #2A2B2A; --ink: #ECECEA; --muted: #A9AAA8; color-scheme: dark; }
+  }
+  .pocket[data-theme="dark"] { --bg-top: #3A3B3A; --bg-bottom: #2A2B2A; --ink: #ECECEA; --muted: #A9AAA8; color-scheme: dark; }
+  *, *::before, *::after { box-sizing: inherit; }
+  .pocket {
+    margin: 0; height: 100%;
+    background: linear-gradient(180deg, var(--bg-top), var(--bg-bottom));
+    position: relative;
+    color: var(--ink);
+    font-family: "Orbit", "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif;
+    overflow: hidden; display: flex; flex-direction: column;
+  }
+  /* 카드 화면: 검은 배경을 위에 덮었다가 기기 화면에서 걷어냄 */
+  .pocket::after {
+    content: ""; position: absolute; inset: 0; background: #000; z-index: 0;
+    pointer-events: none; transition: opacity 0.9s ease;
+  }
+  .pocket:not(.mode-card)::after { opacity: 0; }
+  .pocket > * { position: relative; z-index: 1; }
+  .pocket.mode-card footer { color: #F2EAE6; }
+  .pocket.mode-card #hint { color: #8C8480; }
+  #stage { flex: 1; position: relative; min-height: 0; touch-action: none; }
+  #stage canvas { display: block; width: 100%; height: 100%; outline: none; }
+  #stage canvas:focus-visible { box-shadow: inset 0 0 0 3px #E2541C; }
+  footer { padding: 0 24px 22px; text-align: center; }
+  footer p { transition: color 0.6s ease; }
+  #copy {
+    position: fixed; left: 50%; top: 88%; transform: translate(-50%, -50%); z-index: 2;
+    font: inherit; font-size: 1.125rem; color: #FFFFFF; background: none; border: 0;
+    padding: 10px 20px; margin: 0 0 2px; cursor: pointer; border-radius: 999px;
+    -webkit-tap-highlight-color: transparent; transition: opacity 0.2s ease;
+  }
+  #back {
+    position: fixed; z-index: 2;
+    top: calc(env(safe-area-inset-top, 0px) + 26px); right: 16px;
+    font: inherit; font-size: 1rem; color: #FFFFFF; background: #E0501A;
+    border: 0; border-radius: 999px; padding: 10px 22px; cursor: pointer;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.25), inset 0 -2px 0 rgba(0,0,0,0.15), 0 4px 12px rgba(0,0,0,0.18);
+    -webkit-tap-highlight-color: transparent;
+    transition: opacity 0.5s ease, transform 0.15s ease;
+  }
+  #back:active { transform: scale(0.95); }
+  #back:focus-visible { outline: 2px solid #2B2B2A; outline-offset: 3px; }
+  .pocket.mode-card #back { opacity: 0; pointer-events: none; }
+  #copy { opacity: 0.3; }
+  #copy:active { opacity: 0.15; }
+  .pocket.mode-card #hint { display: none; }
+  #copy:focus-visible { outline: 2px solid #FFFFFF; outline-offset: 2px; }
+  .pocket.mode-card #caption { display: none; }
+  .pocket:not(.mode-card) #copy { display: none; }
+  #caption, #hint { display: none !important; }
+  #title { display: none; }
+  /* 엔터로 펼치는 프로젝트 설명 (카드 아래, HTML 텍스트) */
+  #info {
+    position: fixed; left: 50%; top: 60%; z-index: 2; width: min(520px, calc(100vw - 48px));
+    transform: translate(-50%, 10px); opacity: 0; pointer-events: none; color: #121212;
+    transition: opacity 0.35s ease, transform 0.45s cubic-bezier(.2,.8,.2,1);
+  }
+  #info.open { opacity: 1; transform: translate(-50%, 0); pointer-events: auto; transition-delay: 0.18s; }
+  .pocket.mode-card #info { display: none; }
+  #info .meta { margin: 0 0 6px; font-size: 0.75rem; letter-spacing: 0.02em; color: #6B6B69; display: flex; justify-content: space-between; }
+  #info h2 { margin: 0; font-weight: 400; font-size: clamp(1.375rem, 5.6vw, 1.75rem); line-height: 1.2; letter-spacing: -0.01em; }
+  #info .partner { margin: 2px 0 0; font-size: 1rem; color: #3A3A38; }
+  #info .desc { margin: 8px 0 0; font-size: 0.8125rem; line-height: 1.55; color: #3A3A38; }
+  #info .tags { display: flex; flex-wrap: wrap; gap: 5px; margin: 10px 0 0; padding: 0; list-style: none; }
+  #info .tags li { font-size: 0.6875rem; padding: 4px 10px; border: 1px solid rgba(18,18,18,0.22); border-radius: 999px; color: #3A3A38; }
+  #info .role { margin: 10px 0 0; font-size: 0.75rem; color: #6B6B69; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  #brand {
+    position: fixed; left: 24px; top: calc(env(safe-area-inset-top, 0px) + 26px);
+    z-index: 2; margin: 0; text-align: left; white-space: nowrap; pointer-events: none;
+    font-size: clamp(1.625rem, 7.4vw, 2.5rem); line-height: 1.18; letter-spacing: -0.01em; color: #8A8A87;
+    transition: opacity 0.6s ease 0.75s;
+  }
+  .pocket.mode-card #brand { opacity: 0; transition-delay: 0s; transition-duration: 0.3s; }
+  /* 프로젝트별 엠비언트 배경: 흐린 색 덩어리 세 개 */
+  #ambient { position: fixed; inset: 0; z-index: -1; overflow: hidden; pointer-events: none; transition: opacity 1s ease; }
+  .pocket.mode-card #ambient { opacity: 0; }
+  #ambient { display: none; }   /* 차분한 라이트 그레이 무드: 컬러 번짐 끔 */
+  #ambient i {
+    position: absolute; border-radius: 50%; filter: blur(70px); opacity: 0.7;
+    transition: background-color 1.4s ease;
+    animation: drift 18s ease-in-out infinite alternate;
+  }
+  #ambient i:nth-child(1) { width: 75vmax; height: 75vmax; left: -25vmax; top: -20vmax; }
+  #ambient i:nth-child(2) { width: 65vmax; height: 65vmax; right: -25vmax; top: 20vh; animation-duration: 22s; animation-delay: -6s; }
+  #ambient i:nth-child(3) { width: 55vmax; height: 55vmax; left: 10vw; bottom: -30vmax; animation-duration: 26s; animation-delay: -12s; opacity: 0.5; }
+  @keyframes drift { from { transform: translate(0, 0) scale(1); } to { transform: translate(6vmax, 4vmax) scale(1.12); } }
+  @media (prefers-reduced-motion: reduce) { #ambient i { animation: none; } }
+  #titleWrap {
+    position: fixed; left: 96px; right: 96px; bottom: calc(env(safe-area-inset-bottom, 0px) + 10px); z-index: 1; text-align: center;
+    pointer-events: none; transition: opacity 0.6s ease 0.75s, transform 0.8s cubic-bezier(.2,.8,.2,1) 0.75s;
+  }
+  .pocket.mode-card #titleWrap { opacity: 0; transform: translateY(14px); transition-delay: 0s; transition-duration: 0.3s; }
+  #title { margin: 0; font-weight: 400; font-size: clamp(2rem, 9vw, 3.25rem); line-height: 1.15; color: var(--ink); }
+  #sub { margin: 0; font-size: 0.8125rem; line-height: 1.4; color: var(--muted); min-height: 1.4em; }
+  #caption { margin: 0; font-size: 1.125rem; font-weight: 400; min-height: 1.6em; }
+  #hint { margin: 4px 0 0; font-size: 0.8125rem; color: var(--muted); }
+
+.pocket {
+  position: fixed;
+  inset: 0;
+  z-index: 1;
+  width: 100%;
+}
+
+  .pocket.mode-card #stage canvas,
+  .pocket.mode-card #copy { cursor: none; }
+  #cursor {
+    position: fixed; left: 0; top: 0; z-index: 5; pointer-events: none;
+    width: 76px; height: 76px; margin: -38px 0 0 -38px; border-radius: 50%;
+    background: #FFFFFF; color: #E2552D; display: grid; place-items: center;
+    font: 20px "Space Mono", "Courier New", monospace; letter-spacing: 0.02em;
+    transform: translate(-100px, -100px) scale(0.14);
+    transition: opacity 0.25s ease; opacity: 0;
+  }
+  #cursor span { opacity: 0; transition: opacity 0.2s ease; }
+  #cursor.hot span { opacity: 1; }
+  .pocket:not(.mode-card) #cursor { display: none; }
+
