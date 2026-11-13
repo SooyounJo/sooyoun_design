@@ -461,7 +461,7 @@ export function mountPortfolio(els, sections, cardImages, options = {}) {
     cardBack = new THREE.Mesh(uvRemap(new THREE.ShapeGeometry(shape, 24)), faceMat(bTex));
     cardBack.rotation.y = Math.PI; cardBack.position.z = -(CARD_T / 2 + 0.0008);
     const edge = new THREE.Mesh(extrude(shape, CARD_T, 0, 1),
-      new THREE.MeshStandardMaterial({ color: new THREE.Color(0xE8C9BC), roughness: 0.9, transparent: true }));
+      new THREE.MeshStandardMaterial({ color: new THREE.Color(0xF4E7E0), roughness: 0.42, transparent: true }));
     edge.position.z = -CARD_T / 2;
     cardMats.push(cardFront.material, cardBack.material, edge.material);
     [cardFront, cardBack, edge].forEach(m => { m.castShadow = true; cardInner.add(m); });
@@ -516,7 +516,7 @@ export function mountPortfolio(els, sections, cardImages, options = {}) {
   // 모드 전환: card ↔ device
   // =====================================================================
   let mode = startInWeb ? 'device' : 'card'; // 'card' | 'toDevice' | 'device' | 'toCard'
-  let flipped = false, flipT = 0; // flipT: 0 앞면, 1 뒷면
+  let flipped = false, flipT = 0, backShown = false; // flipT: 0 앞면, 1 뒷면
   let trans = startInWeb ? 1 : 0; // 0 = 카드, 1 = 기기
   const ease = t => t < 0.5 ? 4*t*t*t : 1 - Math.pow(-2*t + 2, 3) / 2;
   const easeOutBack = x => { const c1 = 1.3, c3 = c1 + 1; return 1 + c3 * Math.pow(x - 1, 3) + c1 * Math.pow(x - 1, 2); };
@@ -568,10 +568,19 @@ export function mountPortfolio(els, sections, cardImages, options = {}) {
   scene.add(ballGroup);
 
   function rainSmiles() {
+    tiltHold = reduceMotion ? 0 : 1.8;
+    swayT = 0;
+    swayDir *= -1;
     zingSound();
     if (!smileTex) smileTex = [smileTexture('#EE5B2F', '#F6EDE8'), smileTexture('#E8DDDC', '#E2552D')];
     const n = reduceMotion ? 5 : 12;
-    const colorOffset = Math.random() < 0.5 ? 0 : 1;
+    const colors = Array.from({ length: n }, (_, i) => i % 2);
+    for (let i = colors.length - 1; i > 0; i -= 1) {
+      const j = Math.floor(Math.random() * (i + 1));
+      const swap = colors[i];
+      colors[i] = colors[j];
+      colors[j] = swap;
+    }
     const camZ = camera.position.z;
     for (let i = 0; i < n; i++) {
       // 크기 세 단계를 섞음: 작은 공 / 중간 / 큰 공
@@ -581,17 +590,15 @@ export function mountPortfolio(els, sections, cardImages, options = {}) {
       const hh = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) * (camZ - z);
       const hw = hh * camera.aspect;
       const mat = new THREE.MeshStandardMaterial({
-        map: smileTex[(i + colorOffset) % 2], roughness: 0.32, metalness: 0,
+        map: smileTex[colors[i]], roughness: 0.32, metalness: 0,
         envMapIntensity: 0.35, transparent: true, opacity: 1
       });
       const m = new THREE.Mesh(ballGeo, mat);
       m.scale.setScalar(r);
-      // 카드 뒤에 가려지지 않게 대부분 카드 옆쪽 공간으로
-      const cardEdgeX = (CARD_W / 2) * (camZ - z) / camZ;
-      const sideRoom = Math.max(0, hw - r - cardEdgeX);
-      const px = (Math.random() < 0.75 && sideRoom > r * 0.6)
-        ? Math.sign(Math.random() - 0.5) * (cardEdgeX + r * 0.4 + Math.random() * sideRoom)
-        : (Math.random() * 2 - 1) * (hw - r);
+      const sign = Math.random() < 0.5 ? -1 : 1;
+      const edgeX = (CARD_W / 2) * (camZ - z) / camZ + r + 0.08;
+      const room = Math.max(0, hw - r - edgeX);
+      const px = sign * (edgeX + Math.random() * room);
       const pos = new THREE.Vector3(px, hh + r + Math.random() * hh * 0.5, z);
       m.position.copy(pos);
       ballGroup.add(m);
@@ -609,6 +616,44 @@ export function mountPortfolio(els, sections, cardImages, options = {}) {
   }
 
   const tmpV = new THREE.Vector3(), tmpQ = new THREE.Quaternion(), wobbleE = new THREE.Euler();
+  const cardInv = new THREE.Matrix4(), ballLocal = new THREE.Vector3();
+  function separateBallsFromCard() {
+    if (!balls.length) return;
+    card.updateWorldMatrix(true, false);
+    cardInv.copy(card.matrixWorld).invert();
+    const scale = Math.max(0.001, Math.abs(card.scale.x));
+    const hx = CARD_W / 2, hy = CARD_H / 2, hz = CARD_T / 2 + 0.02;
+    for (const b of balls) {
+      const rad = b.r / scale + 0.04;
+      ballLocal.copy(b.m.position).applyMatrix4(cardInv);
+      const nearFace = Math.abs(ballLocal.x) <= hx + rad && Math.abs(ballLocal.y) <= hy + rad;
+      if (nearFace) {
+        const limit = -hz - rad;
+        if (ballLocal.z > limit) ballLocal.z = limit;
+      } else {
+        const qx = Math.max(-hx, Math.min(hx, ballLocal.x));
+        const qy = Math.max(-hy, Math.min(hy, ballLocal.y));
+        const qz = Math.max(-hz, Math.min(hz, ballLocal.z));
+        const ox = ballLocal.x - qx, oy = ballLocal.y - qy, oz = ballLocal.z - qz;
+        const dist = Math.hypot(ox, oy, oz);
+        if (dist < rad) {
+          if (dist < 1e-4 || oz > 0) {
+            const side = Math.hypot(ox, oy) || 1;
+            const gap = rad - Math.min(dist, rad);
+            ballLocal.x += (ox / side) * gap;
+            ballLocal.y += (oy / side) * gap;
+            if (ballLocal.z > -hz) ballLocal.z = -hz - rad;
+          } else {
+            const gap = (rad - dist) / dist;
+            ballLocal.x += ox * gap;
+            ballLocal.y += oy * gap;
+            ballLocal.z += oz * gap;
+          }
+        }
+      }
+      b.m.position.copy(ballLocal).applyMatrix4(card.matrixWorld);
+    }
+  }
   const LEAVE_AT = 9.4, FADE_AT = 10, FADE_LEN = 1.8;
   function updateBalls(dt, t) {
     if (!balls.length) return;
@@ -647,7 +692,6 @@ export function mountPortfolio(els, sections, cardImages, options = {}) {
       v.multiplyScalar(drag);
       p.addScaledVector(v, dt);
       v.z = 0;
-      p.z = Math.min(p.z, -(b.r + 0.4));   // 부딪혀도 카드 앞으로 나오지 않게
     }
     // 공끼리 부드럽게 밀어내기
     for (let i = 0; i < balls.length; i++) for (let j = i + 1; j < balls.length; j++) {
@@ -679,6 +723,7 @@ export function mountPortfolio(els, sections, cardImages, options = {}) {
         if (rel < 0) { A.vel.addScaledVector(tmpV, rel * 0.5); B.vel.addScaledVector(tmpV, -rel * 0.5); }
       }
     }
+    separateBallsFromCard();
     for (let i = balls.length - 1; i >= 0; i--) {
       const b = balls[i];
       // 굴러가는 듯한 기울기, 얼굴은 대체로 정면
@@ -795,7 +840,12 @@ export function mountPortfolio(els, sections, cardImages, options = {}) {
       src.start(now); src.stop(now + dur);
     } catch (_) {}
   }
-  function flip() { flipped = !flipped; setCardHint(); paperSound(); }
+  function flip() {
+    flipped = !flipped;
+    tiltHold = 0;
+    setCardHint();
+    paperSound();
+  }
   function goWeb() {
     cardVideos.forEach(v => { v.play().then(() => v.pause()).catch(() => {}); });   // iOS: 사용자 터치 안에서 한 번 깨워둠
     if (mode !== 'card') return;
@@ -820,6 +870,7 @@ export function mountPortfolio(els, sections, cardImages, options = {}) {
   let dragging = false, sx = 0, sy = 0, moved = 0;
   let greeted = false;
   let rotX = 0, rotY = 0, tRotX = 0, tRotY = 0;
+  let tilt = 0, tiltVel = 0, tiltHold = 0, swayT = 0, swayDir = -1;
   const el = renderer.domElement;
   if (startInWeb) {
     root.classList.remove('mode-card');
@@ -1018,14 +1069,31 @@ export function mountPortfolio(els, sections, cardImages, options = {}) {
 
     // 카드
     flipT += ((flipped ? 1 : 0) - flipT) * Math.min(1, dt * 7);
+    const showBack = flipT > 0.55;
+    if (showBack !== backShown) {
+      backShown = showBack;
+      root.classList.toggle('show-back', showBack);
+    }
     card.visible = cOut < 0.999;
     const lift = Math.sin(flipT * Math.PI) * 0.6;
     cardInner.rotation.y = flipT * Math.PI;
     card.position.set(0, Math.sin(t * 0.9) * 0.04 * idle + cOut * 0.9, lift - cOut * 1.2);
-    card.rotation.set(rotX * (1 - cOut) + Math.sin(t * 0.6) * 0.03 * idle - cOut * 0.9,
-                      rotY * (1 - cOut) + Math.sin(t * 0.4) * 0.05 * idle, 0);
+    tiltHold = Math.max(0, tiltHold - dt);
+    const tiltTarget = tiltHold > 0 ? 1 : 0;
+    tiltVel += ((tiltTarget - tilt) * 38 - tiltVel * 7.5) * dt;
+    tilt += tiltVel * dt;
+    swayT += dt;
+    const side = Math.cos(swayT * 3.0) * swayDir;
+    card.rotation.set(rotX * (1 - cOut) + Math.sin(t * 0.6) * 0.03 * idle - cOut * 0.9 + tilt * 0.62,
+                      rotY * (1 - cOut) + Math.sin(t * 0.4) * 0.05 * idle + tilt * 0.75 * side,
+                      tilt * 0.28 * side);
     card.scale.setScalar(1 - cOut * 0.15);
-    cardMats.forEach(m => { m.opacity = 1 - cOut; m.depthWrite = cOut < 0.05; });
+    cardMats.forEach(m => {
+      const fade = cOut > 0.001;
+      m.opacity = 1 - cOut;
+      if (m.transparent !== fade) { m.transparent = fade; m.needsUpdate = true; }
+      m.depthWrite = !fade;
+    });
     const breathPeriod = 7.2;
     const breathPhase = (t % breathPeriod) / breathPeriod;
     const breathWindow = 0.38;

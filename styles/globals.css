@@ -42,8 +42,9 @@ button { font: inherit; }
   /* 카드 화면: 검은 배경을 위에 덮었다가 기기 화면에서 걷어냄 */
   .pocket::after {
     content: ""; position: absolute; inset: 0; background: #000; z-index: 0;
-    pointer-events: none; transition: opacity 0.9s ease;
+    pointer-events: none; transition: opacity 0.9s ease, background-color 0.45s ease;
   }
+  .pocket.mode-card.show-back::after { background: #DA3610; }
   .pocket:not(.mode-card)::after { opacity: 0; }
   .pocket > * { position: relative; z-index: 1; }
   .pocket.mode-card footer { color: #F2EAE6; }
