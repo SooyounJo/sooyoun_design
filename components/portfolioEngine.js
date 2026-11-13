@@ -569,7 +569,6 @@ export function mountPortfolio(els, sections, cardImages, options = {}) {
 
   function rainSmiles() {
     tiltHold = reduceMotion ? 0 : 1.8;
-    swayT = 0;
     swayDir *= -1;
     zingSound();
     if (!smileTex) smileTex = [smileTexture('#EE5B2F', '#F6EDE8'), smileTexture('#E8DDDC', '#E2552D')];
@@ -870,7 +869,7 @@ export function mountPortfolio(els, sections, cardImages, options = {}) {
   let dragging = false, sx = 0, sy = 0, moved = 0;
   let greeted = false;
   let rotX = 0, rotY = 0, tRotX = 0, tRotY = 0;
-  let tilt = 0, tiltVel = 0, tiltHold = 0, swayT = 0, swayDir = -1;
+  let tilt = 0, tiltVel = 0, tiltHold = 0, swayDir = -1;
   const el = renderer.domElement;
   if (startInWeb) {
     root.classList.remove('mode-card');
@@ -1082,8 +1081,7 @@ export function mountPortfolio(els, sections, cardImages, options = {}) {
     const tiltTarget = tiltHold > 0 ? 1 : 0;
     tiltVel += ((tiltTarget - tilt) * 38 - tiltVel * 7.5) * dt;
     tilt += tiltVel * dt;
-    swayT += dt;
-    const side = Math.cos(swayT * 3.0) * swayDir;
+    const side = swayDir;
     card.rotation.set(rotX * (1 - cOut) + Math.sin(t * 0.6) * 0.03 * idle - cOut * 0.9 + tilt * 0.62,
                       rotY * (1 - cOut) + Math.sin(t * 0.4) * 0.05 * idle + tilt * 0.75 * side,
                       tilt * 0.28 * side);
