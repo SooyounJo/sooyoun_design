@@ -8,6 +8,7 @@ export function mountPortfolio(els, sections, cardImages, options = {}) {
   let cursorRaf = 0
   let observer = null
   let cur = null
+  let tapMarkTimer = null
   let alive = true
   const windowListeners = []
   const listen = (target, type, handler) => {
@@ -466,99 +467,6 @@ export function mountPortfolio(els, sections, cardImages, options = {}) {
     [cardFront, cardBack, edge].forEach(m => { m.castShadow = true; cardInner.add(m); });
     // 뒷면 이미지에서 Go Web 글자 영역 (비율)
     goWebBox = { x0: 0.26 * CW, x1: 0.76 * CW, y0: 0.66 * CH, y1: 0.79 * CH };
-    helloNudge = makeHelloGlow(fTex && fTex.image);
-  }
-
-  let helloHot = false;
-  let helloNudge = null;
-  function makeHelloGlow(image) {
-    const u0 = 0.36;
-    const u1 = 0.64;
-    const vt0 = 0.768;
-    const vt1 = 0.832;
-    const canvas = document.createElement('canvas');
-    canvas.width = 360;
-    canvas.height = 120;
-    const ctx = canvas.getContext('2d', { willReadFrequently: true });
-    if (image) {
-      const sx = u0 * image.width;
-      const sy = vt0 * image.height;
-      const sw = (u1 - u0) * image.width;
-      const sh = (vt1 - vt0) * image.height;
-      ctx.drawImage(image, sx, sy, sw, sh, 0, 0, canvas.width, canvas.height);
-      const frame = ctx.getImageData(0, 0, canvas.width, canvas.height);
-      const src = frame.data;
-      const w = canvas.width;
-      const h = canvas.height;
-      const luma = new Float32Array(w * h);
-      for (let i = 0; i < w * h; i += 1) {
-        luma[i] = src[i * 4] * 0.299 + src[i * 4 + 1] * 0.587 + src[i * 4 + 2] * 0.114;
-      }
-      const blur = new Float32Array(w * h);
-      const radius = 5;
-      for (let y = 0; y < h; y += 1) {
-        for (let x = 0; x < w; x += 1) {
-          let acc = 0;
-          let count = 0;
-          for (let dy = -radius; dy <= radius; dy += 2) {
-            const yy = y + dy;
-            if (yy < 0 || yy >= h) continue;
-            for (let dx = -radius; dx <= radius; dx += 2) {
-              const xx = x + dx;
-              if (xx < 0 || xx >= w) continue;
-              acc += luma[yy * w + xx];
-              count += 1;
-            }
-          }
-          blur[y * w + x] = acc / count;
-        }
-      }
-      const mask = ctx.createImageData(w, h);
-      for (let i = 0; i < w * h; i += 1) {
-        const edge = Math.abs(luma[i] - blur[i]);
-        const alpha = Math.max(0, Math.min(255, (edge - 12) * 30));
-        mask.data[i * 4] = 255;
-        mask.data[i * 4 + 1] = 255;
-        mask.data[i * 4 + 2] = 255;
-        mask.data[i * 4 + 3] = alpha;
-      }
-      ctx.clearRect(0, 0, w, h);
-      const stamp = document.createElement('canvas');
-      stamp.width = w;
-      stamp.height = h;
-      stamp.getContext('2d').putImageData(mask, 0, 0);
-      ctx.filter = 'blur(7px)';
-      ctx.drawImage(stamp, 0, 0);
-      ctx.filter = 'none';
-    }
-    const tex = new THREE.CanvasTexture(canvas);
-    tex.colorSpace = THREE.SRGBColorSpace;
-    const width = (u1 - u0) * CARD_W;
-    const height = (vt1 - vt0) * CARD_H;
-    const mesh = new THREE.Mesh(
-      new THREE.PlaneGeometry(width, height),
-      new THREE.MeshBasicMaterial({
-        map: tex,
-        transparent: true,
-        depthWrite: false,
-        toneMapped: false,
-        blending: THREE.AdditiveBlending,
-      })
-    );
-    const uvY = 1 - (vt0 + vt1) / 2;
-    mesh.position.set(0, uvY * CARD_H - CARD_H / 2, CARD_T / 2 + 0.01);
-    mesh.renderOrder = 2;
-    cardInner.add(mesh);
-    return { mesh, tex };
-  }
-  function paintHelloNudge(time) {
-    if (!helloNudge) return;
-    const { mesh } = helloNudge;
-    const show = mode === 'card' && flipT < 0.08;
-    const breathe = reduceMotion ? 0.34 : 0.12 + 0.22 * (0.5 + 0.5 * Math.sin(time * 1.7));
-    const shine = helloHot ? 0.55 : breathe;
-    mesh.material.opacity = show ? shine * (1 - Math.min(1, flipT * 8)) : 0;
-    mesh.visible = mesh.material.opacity > 0.02;
   }
 
   // 카드용 레이킹 라이트: 엠보싱 그림자를 살림
@@ -910,6 +818,7 @@ export function mountPortfolio(els, sections, cardImages, options = {}) {
   // ---------- 입력 ----------
   const ray = new THREE.Raycaster(), ptr = new THREE.Vector2();
   let dragging = false, sx = 0, sy = 0, moved = 0;
+  let greeted = false;
   let rotX = 0, rotY = 0, tRotX = 0, tRotY = 0;
   const el = renderer.domElement;
   if (startInWeb) {
@@ -937,7 +846,8 @@ export function mountPortfolio(els, sections, cardImages, options = {}) {
         const hit = ray.intersectObject(cardFront)[0];
         if (hit) {
           const u = hit.uv.x, vt = 1 - hit.uv.y;
-          if (u > HELLO_BOX.u0 && u < HELLO_BOX.u1 && vt > HELLO_BOX.v0 && vt < HELLO_BOX.v1) { rainSmiles(); return; }
+          const onHello = u > HELLO_BOX.u0 && u < HELLO_BOX.u1 && vt > HELLO_BOX.v0 && vt < HELLO_BOX.v1;
+          if (!greeted || onHello) { greeted = true; rainSmiles(); return; }
         }
       }
       if (GO_WEB_ENABLED && flipped && flipT > 0.95 && cardBack) {
@@ -965,6 +875,7 @@ export function mountPortfolio(els, sections, cardImages, options = {}) {
     if (!flipped && flipT < 0.05 && cardFront) {
       const hit = ray.intersectObject(cardFront)[0];
       if (hit) {
+        if (!greeted) return 'hello';
         const u = hit.uv.x, vt = 1 - hit.uv.y;
         if (u > HELLO_BOX.u0 && u < HELLO_BOX.u1 && vt > HELLO_BOX.v0 && vt < HELLO_BOX.v1) return 'hello';
       }
@@ -991,7 +902,6 @@ export function mountPortfolio(els, sections, cardImages, options = {}) {
       cur.style.opacity = '1';
       if (dragging) return;
       const zone = overCopy ? 'copy' : hotZone(e.clientX, e.clientY);
-      helloHot = zone === 'hello';
       const text = { hello: ':D', goweb: 'Go', copy: '' }[zone];
       targetScale = zone === 'copy' ? 0.5 : zone ? 1 : 0.14;
       if (text !== undefined) label.textContent = text;
@@ -1003,7 +913,7 @@ export function mountPortfolio(els, sections, cardImages, options = {}) {
         el.style.cursor = onKey ? 'pointer' : 'grab';
       } else el.style.cursor = '';
     });
-    listen(document, 'pointerleave', () => { cur.style.opacity = '0'; helloHot = false; });
+    listen(document, 'pointerleave', () => { cur.style.opacity = '0'; });
     copyBtn.addEventListener('pointerenter', () => { overCopy = true; });
     copyBtn.addEventListener('pointerleave', () => { overCopy = false; });
     el.addEventListener('pointerdown', () => { targetScale *= 0.85; });
@@ -1014,6 +924,22 @@ export function mountPortfolio(els, sections, cardImages, options = {}) {
       cur.style.transform = `translate(${cx}px, ${cy}px) scale(${scale})`;
       cursorRaf = requestAnimationFrame(follow);
     })();
+  } else {
+    cur = document.createElement('div');
+    cur.id = 'cursor';
+    cur.className = 'hot';
+    cur.setAttribute('aria-hidden', 'true');
+    const label = document.createElement('span');
+    label.textContent = ':D';
+    cur.appendChild(label);
+    root.appendChild(cur);
+    el.addEventListener('pointerup', e => {
+      if (moved >= 8 || mode !== 'card') return;
+      cur.style.opacity = '1';
+      cur.style.transform = `translate(${e.clientX}px, ${e.clientY}px) scale(1)`;
+      clearTimeout(tapMarkTimer);
+      tapMarkTimer = setTimeout(() => { cur.style.opacity = '0'; }, 5000);
+    });
   }
   el.addEventListener('keydown', e => {
     if (mode === 'card') {
@@ -1100,8 +1026,13 @@ export function mountPortfolio(els, sections, cardImages, options = {}) {
                       rotY * (1 - cOut) + Math.sin(t * 0.4) * 0.05 * idle, 0);
     card.scale.setScalar(1 - cOut * 0.15);
     cardMats.forEach(m => { m.opacity = 1 - cOut; m.depthWrite = cOut < 0.05; });
-    cardLight.intensity = 3.4 * (1 - cOut);
-    paintHelloNudge(t);
+    const breathPeriod = 7.2;
+    const breathPhase = (t % breathPeriod) / breathPeriod;
+    const breathWindow = 0.38;
+    const breathHump = breathPhase < breathWindow ? Math.sin((breathPhase / breathWindow) * Math.PI) : 0;
+    const breathGain = 1 + 0.22 * breathHump * idle * (1 - Math.min(1, cOut));
+    cardMats.forEach(m => { if (m.map) m.color.setRGB(breathGain, breathGain, breathGain); });
+    cardLight.intensity = 3.4 * (1 - cOut) * (1 + 0.12 * breathHump * idle);
 
     // 키 모듈
     device.visible = dRaw > 0.001;
@@ -1166,6 +1097,7 @@ export function mountPortfolio(els, sections, cardImages, options = {}) {
     alive = false
     cancelAnimationFrame(rafId)
     cancelAnimationFrame(cursorRaf)
+    clearTimeout(tapMarkTimer)
     if (observer) observer.disconnect()
     windowListeners.forEach((off) => off())
     cardVideos.forEach((video) => {

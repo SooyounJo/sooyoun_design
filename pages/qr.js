@@ -6,7 +6,9 @@ export default function QrPage() {
       <Head>
         <title>QR</title>
       </Head>
-      <main className="qr-page" />
+      <main className="qr-page">
+        <img src="/qr.png" alt="QR 코드" />
+      </main>
     </>
   )
 }
