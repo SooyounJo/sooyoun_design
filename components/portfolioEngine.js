@@ -525,29 +525,58 @@ export function mountPortfolio(els, sections, cardImages, options = {}) {
   backBtn.addEventListener('click', () => backToCard());
 
   // 이메일 복사
-  const EMAIL = 'dus10167@gmail.com';
+  const HANDLE = '@soon_soon_ac';
   let copyTimer = null;
   copyBtn.addEventListener('click', async () => {
     let ok = false;
-    try { await navigator.clipboard.writeText(EMAIL); ok = true; }
+    try { await navigator.clipboard.writeText(HANDLE); ok = true; }
     catch (_) {
       const ta = document.createElement('textarea');
-      ta.value = EMAIL; ta.setAttribute('readonly', ''); ta.style.position = 'fixed'; ta.style.opacity = '0';
+      ta.value = HANDLE; ta.setAttribute('readonly', ''); ta.style.position = 'fixed'; ta.style.opacity = '0';
       document.body.appendChild(ta); ta.select();
       try { ok = document.execCommand('copy'); } catch (_) {}
       ta.remove();
     }
-    copyBtn.textContent = ok ? 'Copied' : EMAIL;
-    copyBtn.setAttribute('aria-label', ok ? '이메일 주소를 복사했어요' : '복사하지 못했어요. 주소를 직접 선택해 주세요');
+    copyBtn.textContent = ok ? 'Copied' : HANDLE;
+    copyBtn.setAttribute('aria-label', ok ? '@soon_soon_ac를 복사했어요' : '복사하지 못했어요. 아이디를 직접 선택해 주세요');
     clearTimeout(copyTimer);
     copyTimer = setTimeout(() => {
-      copyBtn.textContent = 'Copy';
-      copyBtn.setAttribute('aria-label', '이메일 주소 복사');
+      copyBtn.textContent = HANDLE;
+      copyBtn.setAttribute('aria-label', '@soon_soon_ac 복사');
     }, 1600);
   });
 
   // Hello 누르면 :D 가 떨어짐
-  const HELLO_BOX = { u0: 0.28, u1: 0.72, v0: 0.69, v1: 0.81 };   // 앞면 이미지 안 Hello 영역 (비율)
+  const HELLO_BOX = { u0: 0.28, u1: 0.72, v0: 0.73, v1: 0.84 };   // 앞면 이미지 안 Hello 영역 (비율)
+  const arrowW = 0.5, arrowH = 0.21;
+  const arrowCanvas = document.createElement('canvas');
+  arrowCanvas.width = 512; arrowCanvas.height = 214;
+  const arrowCtx = arrowCanvas.getContext('2d');
+  arrowCtx.lineCap = 'round';
+  arrowCtx.lineJoin = 'round';
+  arrowCtx.lineWidth = 26;
+  const strokeChevron = (dx, dy) => {
+    arrowCtx.beginPath();
+    arrowCtx.moveTo(40 + dx, 30 + dy);
+    arrowCtx.lineTo(256 + dx, 172 + dy);
+    arrowCtx.lineTo(472 + dx, 30 + dy);
+    arrowCtx.stroke();
+  };
+  arrowCtx.strokeStyle = 'rgba(78, 22, 12, 0.72)';
+  strokeChevron(2, 4);
+  arrowCtx.strokeStyle = 'rgba(255, 206, 184, 0.9)';
+  strokeChevron(-1, -2);
+  const arrowMap = new THREE.CanvasTexture(arrowCanvas);
+  arrowMap.colorSpace = THREE.SRGBColorSpace;
+  const helloArrow = new THREE.Mesh(
+    new THREE.PlaneGeometry(arrowW, arrowH),
+    new THREE.MeshBasicMaterial({ map: arrowMap, color: 0xffffff, toneMapped: false, transparent: true, opacity: 0, depthWrite: false, side: THREE.DoubleSide })
+  );
+  const arrowBaseY = (0.5 - HELLO_BOX.v0) * CARD_H + 0.07 + arrowH / 2;
+  helloArrow.position.set(0, arrowBaseY, CARD_T / 2 + 0.02);
+  helloArrow.visible = false;
+  cardInner.add(helloArrow);
+  let arrowOut = 0;
   // :D 공: 배경에서 천천히 내려와 부유하다가 10초 뒤 사라짐
   function smileTexture(bg, ink) {
     const c = document.createElement('canvas'); c.width = 1024; c.height = 512;
@@ -1099,6 +1128,11 @@ export function mountPortfolio(els, sections, cardImages, options = {}) {
     const breathGain = 1 + 0.22 * breathHump * idle * (1 - Math.min(1, cOut));
     cardMats.forEach(m => { if (m.map) m.color.setRGB(breathGain, breathGain, breathGain); });
     cardLight.intensity = 3.4 * (1 - cOut) * (1 + 0.12 * breathHump * idle);
+    const arrowWant = !greeted && flipT < 0.04 && mode === 'card' && cOut < 0.02 ? 1 : 0;
+    arrowOut += (arrowWant - arrowOut) * Math.min(1, dt * (arrowWant ? 2.4 : 7));
+    helloArrow.visible = arrowOut > 0.02;
+    helloArrow.material.opacity = arrowOut;
+    helloArrow.position.y = arrowBaseY + Math.sin(t * 2.6) * 0.035 * idle;
 
     // 키 모듈
     device.visible = dRaw > 0.001;

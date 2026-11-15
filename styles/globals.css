@@ -44,7 +44,7 @@ button { font: inherit; }
     content: ""; position: absolute; inset: 0; background: #000; z-index: 0;
     pointer-events: none; transition: opacity 0.9s ease, background-color 0.45s ease;
   }
-  .pocket.mode-card.show-back::after { background: #DA3610; }
+  .pocket.mode-card.show-back::after { background: #F24C34; }
   .pocket:not(.mode-card)::after { opacity: 0; }
   .pocket > * { position: relative; z-index: 1; }
   .pocket.mode-card footer { color: #F2EAE6; }

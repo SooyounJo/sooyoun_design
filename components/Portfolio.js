@@ -60,8 +60,8 @@ export default function Portfolio({ web = false }) {
         <p id="sub" ref={subRef} />
       </div>
       <footer>
-        <button id="copy" ref={copyRef} type="button" aria-label="이메일 주소 복사">
-          Copy
+        <button id="copy" ref={copyRef} type="button" aria-label="@soon_soon_ac 복사">
+          @soon_soon_ac
         </button>
         <p id="caption" ref={captionRef} aria-live="polite">
           &nbsp;
